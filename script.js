@@ -2,7 +2,64 @@
    AXIS – Nomes Mágicos
    Swipe / Pigbacking / Grade / Lexicon (simples)
    ============================================================ */
+function getDeviceFingerprint() {
+  return btoa(
+    navigator.userAgent +
+    navigator.platform +
+    screen.width +
+    screen.height +
+    (window.devicePixelRatio || "")
+  );
+}
 
+async function checkLicenseBeforeStart() {
+  const params = new URLSearchParams(location.search);
+  let license = params.get("license");
+
+  // 1) Salva no aparelho caso venha via URL
+  if (license) {
+    localStorage.setItem("axis_license", license);
+  } else {
+    license = localStorage.getItem("axis_license");
+  }
+
+  // 2) Se ainda não houver → bloqueia
+  if (!license) {
+    showLicenseError();
+    return false;
+  }
+
+  const fp = getDeviceFingerprint();
+
+  try {
+    const resp = await fetch(
+      "https://axis-license-checker.d2bz92x2cp.workers.dev/?license=" +
+        encodeURIComponent(license) +
+        "&fp=" +
+        encodeURIComponent(fp)
+    );
+
+    const data = await resp.json();
+
+    if (!data.ok) {
+      showLicenseError();
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    showLicenseError();
+    return false;
+  }
+}
+
+function showLicenseError() {
+  document.body.innerHTML = `
+  <div style="padding:30px;color:#fff;background:#000;font-family:-apple-system,system-ui;">
+    <h1>Licença Necessária</h1>
+    <p>Abra o app usando o link que você recebeu após a compra.</p>
+  </div>`;
+}
 /* ---------- Helpers ---------- */
 
 function normalize(str) {
@@ -3296,3 +3353,10 @@ function goBackOneStep() {
     return;
   }
 }
+(async function init() {
+  const ok = await checkLicenseBeforeStart();
+  if (!ok) return;
+
+  // inicia seu app normal
+  openOnly("home");
+})();
