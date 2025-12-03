@@ -2,63 +2,54 @@
    AXIS – Nomes Mágicos
    Swipe / Pigbacking / Grade / Lexicon (simples)
    ============================================================ */
-function getDeviceFingerprint() {
-  return btoa(
-    navigator.userAgent +
-    navigator.platform +
-    screen.width +
-    screen.height +
-    (window.devicePixelRatio || "")
-  );
-}
+async function checkLicense() {
+  let lic = new URLSearchParams(location.search).get("license");
 
-async function checkLicenseBeforeStart() {
-  const params = new URLSearchParams(location.search);
-  let license = params.get("license");
-
-  // 1) Salva no aparelho caso venha via URL
-  if (license) {
-    localStorage.setItem("axis_license", license);
+  if (lic) {
+    localStorage.setItem("axis_lic", lic);
   } else {
-    license = localStorage.getItem("axis_license");
+    lic = localStorage.getItem("axis_lic");
   }
 
-  // 2) Se ainda não houver → bloqueia
-  if (!license) {
-    showLicenseError();
+  if (!lic) {
+    bloqueia("Licença necessária. Abra pelo link enviado após a compra.");
     return false;
   }
 
-  const fp = getDeviceFingerprint();
+  const fp = btoa(navigator.userAgent + screen.width + screen.height);
 
   try {
     const resp = await fetch(
-      "https://axis-license-checker.d2bz92x2cp.workers.dev/?license=" +
-        encodeURIComponent(license) +
-        "&fp=" +
-        encodeURIComponent(fp)
+      "https://worker.d2bz92x2cp.workers.dev/?license=" +
+      lic + "&fp=" + fp
     );
 
     const data = await resp.json();
 
     if (!data.ok) {
-      showLicenseError();
+      if (data.error === "device_limit") {
+        bloqueia("Licença já foi ativada em outro dispositivo.");
+      } else {
+        bloqueia("Licença inválida.");
+      }
       return false;
     }
 
     return true;
-  } catch (e) {
-    showLicenseError();
+
+  } catch (err) {
+    bloqueia("Erro de conexão.");
     return false;
   }
 }
 
-function showLicenseError() {
+function bloqueia(msg) {
   document.body.innerHTML = `
-  <div style="padding:30px;color:#fff;background:#000;font-family:-apple-system,system-ui;">
-    <h1>Licença Necessária</h1>
-    <p>Abra o app usando o link que você recebeu após a compra.</p>
-  </div>`;
+    <div style="color:white;padding:20px;font-family:-apple-system;">
+      <h2>Licença Necessária</h2>
+      <p>${msg}</p>
+    </div>
+  `;
 }
 /* ---------- Helpers ---------- */
 
